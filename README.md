@@ -50,6 +50,7 @@ Este microfrontend atua como **remote**:
 
 ```bash
 npm install
+npm install @mui/material @emotion/react @emotion/styled
 npm run dev
 ```
 
