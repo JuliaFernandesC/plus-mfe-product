@@ -1,13 +1,10 @@
-const API_BASE_URL = import.meta.env.VITE_PRODUCT_API_URL || "http://localhost:3002";
+import {
+  createProduct as apiCreate,
+  updateProduct as apiUpdate,
+  disableProduct as apiDisable,
+  fetchProductById,
+} from "../../api/productApi";
 
-function getAuthHeaders() {
-  const token = localStorage.getItem("token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
-}
-
-// Dados mockados (formato autorizado pelo professor). Os IDs aqui devem
-// ser os MESMOS usados em app/clients/mock_data.py no back, senão a
-// validação cross-service recusa.
 export const MOCK_CATEGORIES = [
   { id: "1", nome: "Calças" },
   { id: "2", nome: "Vestidos" },
@@ -24,53 +21,35 @@ export const MOCK_SUPPLIERS = [
 
 export function useProductForm() {
   async function createProduct(payload: any) {
-    const response = await fetch(`${API_BASE_URL}/products`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-      body: JSON.stringify(payload),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || "Erro ao criar produto");
-    }
+    await apiCreate(payload);
   }
 
   async function loadProduct(id: string) {
-    const response = await fetch(`${API_BASE_URL}/products/${id}`, {
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error("Erro ao buscar produto");
-    const p = await response.json();
+    const p = await fetchProductById(id);
     return {
       id: p.id,
       nome: p.nome,
-      descricao: p.descricao,
-      marca: p.marca,
+      descricao: p.descricao ?? "",
+      marca: p.marca ?? "",
       preco: p.preco,
-      categoriaId: p.categoriaId,
-      fornecedorId: p.fornecedorId,
+      categoriaId: p.categoriaId ?? "",
+      fornecedorId: p.fornecedorId ?? "",
+      ativo: p.ativo,
+      cores: [],
+      grades: [],
     };
   }
 
   async function updateProduct(payload: any) {
-    const { id, ...body } = payload;
-    const response = await fetch(`${API_BASE_URL}/products/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json", ...getAuthHeaders() },
-      body: JSON.stringify(body),
-    });
-    if (!response.ok) {
-      const error = await response.json().catch(() => ({}));
-      throw new Error(error.detail || "Erro ao atualizar produto");
+    const { id, cores, grades, ativo, ...body } = payload;
+    await apiUpdate(id, body);
+    if (ativo === false) {
+      await apiDisable(id);
     }
   }
 
   async function disableProduct(id: string) {
-    const response = await fetch(`${API_BASE_URL}/products/${id}/disable`, {
-      method: "PATCH",
-      headers: getAuthHeaders(),
-    });
-    if (!response.ok) throw new Error("Erro ao desativar produto");
+    await apiDisable(id);
   }
 
   return { createProduct, loadProduct, updateProduct, disableProduct };

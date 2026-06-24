@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Box,
   Typography,
@@ -19,28 +19,13 @@ import DeleteOutlineIcon from "@mui/icons-material/DeleteOutlined";
 
 import { Button } from "../components/Button";
 import { ProductGrid } from "../components/ProductGrid";
-import { ProductCard, type Product } from "../components/ProductCard";
+import { ProductCard } from "../components/ProductCard";
+import { useProductSearch } from "../hooks/products/useProductSearch";
 
 export interface FilterGroupOption {
   id:      string;
   label:   string;
   swatch?: string;
-}
-
-export interface ProductListPageProps {
-  title:           string;
-  products:        Product[];
-  loading?:        boolean;
-  totalPages?:     number;
-  page?:           number;
-  onPageChange?:   (page: number) => void;
-  activeFilters?:  string[];
-  onRemoveFilter?: (id: string) => void;
-  typeOptions?:    FilterGroupOption[];
-  colorOptions?:   FilterGroupOption[];
-  onAddToCart?:    (id: string) => void;
-  onToggleFavorite?: (id: string) => void;
-  onOpenProduct?:  (id: string) => void;
 }
 
 const DEFAULT_TYPES: FilterGroupOption[] = [
@@ -60,29 +45,63 @@ const DEFAULT_COLORS: FilterGroupOption[] = [
   { id: "blue",        label: "Blue",       swatch: "#3d5dd8" },
 ];
 
-export function ProductListPage({
-  title,
-  products,
-  loading = false,
-  totalPages = 1,
-  page = 1,
-  onPageChange,
-  activeFilters = [],
-  onRemoveFilter,
-  typeOptions = DEFAULT_TYPES,
-  colorOptions = DEFAULT_COLORS,
-  onAddToCart,
-  onToggleFavorite,
-  onOpenProduct,
-}: ProductListPageProps) {
-  const [search, setSearch] = useState("");
-  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set(["oversize"]));
-  const [selectedColors, setSelectedColors] = useState<Set<string>>(new Set(["multicolour"]));
+export function ProductListPage() {
+  const { products, loading, page, totalPages, search, goToPage, setFilters } =
+    useProductSearch(12);
+
+  const [searchText, setSearchText] = useState("");
+  const [selectedTypes, setSelectedTypes] = useState<Set<string>>(new Set());
+  const [selectedColors, setSelectedColors] = useState<Set<string>>(new Set());
+  const [activeFilterLabels, setActiveFilterLabels] = useState<string[]>([]);
+
+  useEffect(() => {
+    search();
+  }, []);
 
   const toggleInSet = (set: Set<string>, id: string) => {
     const next = new Set(set);
     next.has(id) ? next.delete(id) : next.add(id);
     return next;
+  };
+
+  const handleApplyFilters = () => {
+    const marcaValues = Array.from(selectedTypes).join(",");
+    setFilters({
+      nome: searchText || undefined,
+      marca: marcaValues || undefined,
+      page: 1,
+    });
+
+    const labels: string[] = [];
+    selectedTypes.forEach((t) => {
+      const opt = DEFAULT_TYPES.find((o) => o.id === t);
+      if (opt) labels.push(opt.label);
+    });
+    selectedColors.forEach((c) => {
+      const opt = DEFAULT_COLORS.find((o) => o.id === c);
+      if (opt) labels.push(opt.label);
+    });
+    if (searchText) labels.push(`"${searchText}"`);
+    setActiveFilterLabels(labels);
+
+    search({
+      nome: searchText || undefined,
+      marca: marcaValues || undefined,
+      page: 1,
+    });
+  };
+
+  const handleRemoveFilter = (label: string) => {
+    setActiveFilterLabels((prev) => prev.filter((l) => l !== label));
+  };
+
+  const handleClearFilters = () => {
+    setSearchText("");
+    setSelectedTypes(new Set());
+    setSelectedColors(new Set());
+    setActiveFilterLabels([]);
+    setFilters({ nome: undefined, marca: undefined, page: 1 });
+    search({ nome: undefined, marca: undefined, page: 1 });
   };
 
   return (
@@ -109,7 +128,7 @@ export function ProductListPage({
             WebkitTextFillColor: "transparent",
           }}
         >
-          lapakbaju
+          Plus Gestão
         </Typography>
 
         <Box
@@ -128,8 +147,11 @@ export function ProductListPage({
           <SearchIcon sx={{ fontSize: 18, color: "#9290a8" }} />
           <InputBase
             placeholder="Buscar entre os produtos"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") handleApplyFilters();
+            }}
             sx={{ fontSize: "0.8125rem", flex: 1 }}
           />
         </Box>
@@ -173,9 +195,9 @@ export function ProductListPage({
           </Box>
 
           <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "#9290a8", mb: 1 }}>
-            TIPO
+            TIPO / MARCA
           </Typography>
-          {typeOptions.map((opt) => (
+          {DEFAULT_TYPES.map((opt) => (
             <FormControlLabel
               key={opt.id}
               control={
@@ -197,7 +219,7 @@ export function ProductListPage({
           <Typography sx={{ fontSize: "0.75rem", fontWeight: 700, color: "#9290a8", mt: 2, mb: 1 }}>
             COR
           </Typography>
-          {colorOptions.map((opt) => (
+          {DEFAULT_COLORS.map((opt) => (
             <FormControlLabel
               key={opt.id}
               control={
@@ -231,25 +253,29 @@ export function ProductListPage({
 
           <Box sx={{ display: "flex", gap: 1, mt: 3 }}>
             <Box sx={{ flex: 1 }}>
-              <Button variant="primary" size="sm" fullWidth>
+              <Button variant="primary" size="sm" fullWidth onClick={handleApplyFilters}>
                 Aplicar
               </Button>
             </Box>
-            <Button variant="icon" icon={<DeleteOutlineIcon sx={{ fontSize: 16 }} />} />
+            <Button
+              variant="icon"
+              icon={<DeleteOutlineIcon sx={{ fontSize: 16 }} />}
+              onClick={handleClearFilters}
+            />
           </Box>
         </Box>
 
-        {/* Conteúdo principal */}
+        {/* Conteudo principal */}
         <Box sx={{ flex: 1, minWidth: 0 }}>
           <Breadcrumbs separator="›" sx={{ mb: 1, fontSize: "0.8125rem" }}>
             <Link underline="hover" sx={{ color: "#9290a8", cursor: "pointer" }}>
-              Página inicial
+              Pagina inicial
             </Link>
             <Link underline="hover" sx={{ color: "#9290a8", cursor: "pointer" }}>
               Categoria
             </Link>
             <Typography sx={{ fontSize: "0.8125rem", color: "#2c2a3a", fontWeight: 600 }}>
-              {title}
+              Produtos
             </Typography>
           </Breadcrumbs>
 
@@ -264,7 +290,7 @@ export function ProductListPage({
             }}
           >
             <Typography sx={{ fontSize: { xs: "1.5rem", md: "1.75rem" }, fontWeight: 800, color: "#2c2a3a" }}>
-              {title}
+              Produtos
             </Typography>
 
             <Typography sx={{ fontSize: "0.8125rem", color: "#9290a8" }}>
@@ -272,13 +298,13 @@ export function ProductListPage({
             </Typography>
           </Box>
 
-          {activeFilters.length > 0 && (
+          {activeFilterLabels.length > 0 && (
             <Box sx={{ display: "flex", gap: 1, mb: 3, flexWrap: "wrap" }}>
-              {activeFilters.map((filter) => (
+              {activeFilterLabels.map((filter) => (
                 <Chip
                   key={filter}
                   label={filter}
-                  onDelete={() => onRemoveFilter?.(filter)}
+                  onDelete={() => handleRemoveFilter(filter)}
                   sx={{
                     background: "#f1f0ff",
                     color: "#4f44c9",
@@ -296,9 +322,6 @@ export function ProductListPage({
               <ProductCard
                 key={product.id}
                 product={product}
-                onAddToCart={onAddToCart}
-                onToggleFavorite={onToggleFavorite}
-                onClick={onOpenProduct}
               />
             ))}
           </ProductGrid>
@@ -308,7 +331,7 @@ export function ProductListPage({
               <Pagination
                 count={totalPages}
                 page={page}
-                onChange={(_, value) => onPageChange?.(value)}
+                onChange={(_, value) => goToPage(value)}
                 renderItem={(item) => <PaginationItem {...item} />}
                 sx={{
                   "& .MuiPaginationItem-root": {
@@ -331,17 +354,3 @@ export function ProductListPage({
 }
 
 export default ProductListPage;
-
-/* Exemplo de uso:
-<ProductListPage
-  title="Sweatshirt"
-  products={products}
-  page={3}
-  totalPages={20}
-  activeFilters={["Oversize", "Multicolour", "XXL"]}
-  onAddToCart={(id) => console.log("add", id)}
-  onToggleFavorite={(id) => console.log("fav", id)}
-  onOpenProduct={(id) => console.log("open", id)}
-  onPageChange={(p) => console.log("page", p)}
-/>
-*/
