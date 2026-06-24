@@ -2,41 +2,24 @@ import { useState } from "react";
 import { Box, Typography } from "@mui/material";
 
 import { ProductGrid } from "../components/ProductGrid";
-import { ProductCard, type Product } from "../components/ProductCard";
+import { ProductCard } from "../components/ProductCard";
 import { AddProductCard } from "../components/AddProductCard";
 import { CreateProductModal, type ProductCreateRequest } from "../components/CreateProductModal";
 import { EditProductModal, type ProductUpdateRequest } from "../components/EditProductModal";
-
-interface CategoryOption { id: string; nome: string }
-interface SupplierOption { id: string; nome: string }
-
-interface ProductEditAdminPageProps {
-  products:    Product[];
-  loading?:    boolean;
-  categories?: CategoryOption[];
-  suppliers?:  SupplierOption[];
-  onCreateProduct: (payload: ProductCreateRequest) => Promise<void> | void;
-  /** Busca os dados completos do produto (incluindo cores/grades) ao abrir a edição */
-  onLoadProduct:   (id: string) => Promise<ProductUpdateRequest>;
-  onUpdateProduct: (payload: ProductUpdateRequest) => Promise<void> | void;
-  onDeleteProduct?:(id: string) => Promise<void> | void;
-}
+import { useProductList } from "../hooks/products/useProductList";
+import { useProductForm, MOCK_CATEGORIES, MOCK_SUPPLIERS } from "../hooks/products/useProductForm";
 
 /**
- * ProductEditAdminPage - listagem admin completa:
- * - AddProductCard fixo na primeira posição -> abre CreateProductModal
- * - clique em qualquer ProductCard -> carrega o produto e abre EditProductModal
+ * ProductEditAdminPage - listagem admin completa, autocontida:
+ * busca e persiste os dados sozinha (mesmo padrão do mfe-auth), sem
+ * depender do Shell para fornecer os dados por fora.
  */
-export function ProductEditAdminPage({
-  products,
-  loading = false,
-  categories = [],
-  suppliers = [],
-  onCreateProduct,
-  onLoadProduct,
-  onUpdateProduct,
-  onDeleteProduct,
-}: ProductEditAdminPageProps) {
+export function ProductEditAdminPage() {
+  const { products, loading, reload } = useProductList();
+  const { createProduct, loadProduct, updateProduct, disableProduct } = useProductForm();
+  const categories = MOCK_CATEGORIES;
+  const suppliers = MOCK_SUPPLIERS;
+
   const [createOpen, setCreateOpen] = useState(false);
   const [creating, setCreating] = useState(false);
 
@@ -45,10 +28,11 @@ export function ProductEditAdminPage({
   const [loadingEdit, setLoadingEdit] = useState(false);
   const [savingEdit, setSavingEdit] = useState(false);
 
-  const handleCreate = async (payload: ProductCreateRequest) => {
+const handleCreate = async (payload: ProductCreateRequest) => {
     setCreating(true);
     try {
-      await onCreateProduct(payload);
+      await createProduct(payload);
+      reload();
       setCreateOpen(false);
     } finally {
       setCreating(false);
@@ -59,7 +43,7 @@ export function ProductEditAdminPage({
     setLoadingEdit(true);
     setEditOpen(true);
     try {
-      const product = await onLoadProduct(id);
+      const product = await loadProduct(id);
       setEditingProduct(product);
     } finally {
       setLoadingEdit(false);
@@ -69,7 +53,8 @@ export function ProductEditAdminPage({
   const handleUpdate = async (payload: ProductUpdateRequest) => {
     setSavingEdit(true);
     try {
-      await onUpdateProduct(payload);
+      await updateProduct(payload);
+      reload();
       setEditOpen(false);
       setEditingProduct(null);
     } finally {
@@ -78,8 +63,8 @@ export function ProductEditAdminPage({
   };
 
   const handleDelete = async (id: string) => {
-    if (!onDeleteProduct) return;
-    await onDeleteProduct(id);
+    await disableProduct(id);
+    reload();
     setEditOpen(false);
     setEditingProduct(null);
   };
@@ -124,7 +109,7 @@ export function ProductEditAdminPage({
           setEditingProduct(null);
         }}
         onSubmit={handleUpdate}
-        onDelete={onDeleteProduct ? handleDelete : undefined}
+        onDelete={handleDelete}
         categories={categories}
         suppliers={suppliers}
         submitting={savingEdit}

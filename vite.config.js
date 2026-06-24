@@ -6,13 +6,15 @@ export default defineConfig({
   plugins: [
     react(),
     federation({
-      name: "mfe_auth",
+      name: "mfe_product",
       filename: "remoteEntry.js",
-      // Componentes expostos para o Shell consumir
       exposes: {
-        "./LoginPage": "./src/pages/LoginPage",
+        "./ProductListPage":      "./src/pages/ProductList",
+        "./ProductDetailPage":    "./src/pages/ProductDetail",
+        "./ProductListAdminPage": "./src/pages/ProductCreate",
+        "./ProductEditAdminPage": "./src/pages/ProdutEdit",
       },
-      shared: ["react", "react-dom"],
+      shared: ["react", "react-dom", "@mui/material", "@emotion/react", "@emotion/styled"],
     }),
   ],
   build: {
@@ -20,11 +22,11 @@ export default defineConfig({
     minify: false,
   },
   server: {
-    port: 4001,
+    port: 4002,
     host: true,
   },
   preview: {
-    port: 4001,
+    port: 4002,
     host: true,
   },
 });
